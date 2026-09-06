@@ -43,23 +43,35 @@ function cardMaps(p){
  if(pins.length===1&&!p.coordinateConflict)return `<a class="card-map" href="${link(pins[0])}" target="_blank" rel="noopener noreferrer" aria-label="Άνοιγμα στο Google Maps · ${esc(precision(pins[0]))}">${mapIcon()}<span>Google Maps<small>${esc(precision(pins[0]))}</small></span><span aria-hidden="true">↗</span></a>`;
  return `<details class="card-map-options"><summary>${mapIcon()}<span>Google Maps<small>${p.coordinateConflict?'⚠ Διαφορετικές πινέζες':'Πινέζες πηγών'}</small></span><span aria-hidden="true">⌄</span></summary><p>Η τοποθεσία χρειάζεται επιβεβαίωση.</p>${pins.map(s=>`<a href="${link(s)}" target="_blank" rel="noopener noreferrer">${esc(sourceName(s))} ↗<small>${esc(precision(s))}</small></a>`).join('')}</details>`;
 }
+const cardAnchors=new WeakMap();
+function moveToRowStart(card){
+ const grid=card.parentElement;
+ const rowStart=[...grid.children].find(c=>c.classList.contains('card')&&Math.abs(c.offsetTop-card.offsetTop)<2);
+ if(!rowStart||rowStart===card)return;
+ const anchor=document.createComment('restore-'+card.dataset.id);
+ grid.insertBefore(anchor,card);cardAnchors.set(card,anchor);grid.insertBefore(card,rowStart);
+}
+function keepCardPosition(card,top){window.scrollBy({top:card.getBoundingClientRect().top-top,behavior:'instant'});}
 function closeCard(card,restore=true){
  if(!card)return;
+ const top=card.getBoundingClientRect().top;
  card.classList.remove('is-expanded');
  const panel=card.querySelector('.expanded-content');panel.hidden=true;panel.replaceChildren();
- const button=card.querySelector('.card-cta');button.setAttribute('aria-expanded','false');
- if(restore){button.focus({preventScroll:true});card.scrollIntoView({block:'start',behavior:'instant'});}
+ const anchor=cardAnchors.get(card);if(anchor){anchor.replaceWith(card);cardAnchors.delete(card);}
+ const button=card.querySelector('.card-cta');button.setAttribute('aria-expanded','false');button.innerHTML='Λεπτομέρειες <span aria-hidden="true">⌄</span>';
+ if(restore){button.focus({preventScroll:true});keepCardPosition(card,Math.max(top,12));}
 }
 function expandCard(card){
  if(card.classList.contains('is-expanded')){closeCard(card);return;}
  const p=data.properties.find(p=>p.id===card.dataset.id);if(!p)return;
- closeCard(document.querySelector('.card.is-expanded'),false);
- card.classList.add('is-expanded');card.querySelector('.card-cta').setAttribute('aria-expanded','true');
+ const top=card.getBoundingClientRect().top;
+ closeCard(document.querySelector('.card.is-expanded'),false);moveToRowStart(card);
+ card.classList.add('is-expanded');const toggle=card.querySelector('.card-cta');toggle.setAttribute('aria-expanded','true');toggle.innerHTML='Κλείσιμο λεπτομερειών <span aria-hidden="true">⌃</span>';
  const panel=card.querySelector('.expanded-content');panel.hidden=false;
  panel.innerHTML=`<div class="inline-bar"><strong>${esc(kind(p))} · ${esc(range(numbers(p,'area'),num.format.bind(num)))} τ.μ.</strong><button type="button" class="panel-close" aria-label="Κλείσιμο λεπτομερειών">×</button></div><div class="inline-detail detail"></div>`;
  renderDetail(p,panel.querySelector('.inline-detail'),true);
  panel.querySelectorAll('.panel-close,.panel-close-bottom').forEach(b=>b.addEventListener('click',()=>closeCard(card)));
- panel.querySelector('.panel-close').focus({preventScroll:true});card.scrollIntoView({block:'start',behavior:'instant'});
+ toggle.focus({preventScroll:true});keepCardPosition(card,top);
 }
 function wireCards(){
  document.querySelectorAll('.card').forEach(card=>{
