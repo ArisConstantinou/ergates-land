@@ -88,9 +88,26 @@ function addPropertyNavigation(card){
  const nav=document.createElement('nav');nav.className='property-navigation';nav.setAttribute('aria-label','Πλοήγηση ακινήτων');
  nav.innerHTML=`<button type="button" class="property-previous" aria-label="Προηγούμενο ακίνητο" title="Προηγούμενο ακίνητο" ${index===0?'disabled':''}>←</button><label><span>Αλλαγή ακινήτου · ${index+1} / ${listedCardIds.length}</span><select aria-label="Επιλογή ακινήτου">${listedCardIds.map((id,i)=>{const p=data.properties.find(p=>p.id===id);return `<option value="${esc(id)}" ${id===card.dataset.id?'selected':''}>${i+1}. ${esc(kind(p))} ${esc(range(numbers(p,'area'),num.format.bind(num)))} τ.μ. · ${esc(priceText(p))}</option>`;}).join('')}</select></label><button type="button" class="property-next" aria-label="Επόμενο ακίνητο" title="Επόμενο ακίνητο" ${index===listedCardIds.length-1?'disabled':''}>→</button><button type="button" class="property-nav-close" aria-label="Κλείσιμο και επιστροφή στη λίστα" title="Κλείσιμο και επιστροφή στη λίστα">×</button>`;
  card.prepend(nav);
- const go=(id,focus)=>{const next=[...document.querySelectorAll('.card')].find(c=>c.dataset.id===id);if(!next||next===card)return;closeCard(card,false);expandCard(next);next.scrollIntoView({block:'start',behavior:'instant'});const control=next.querySelector(focus);(control.disabled?next.querySelector('.property-navigation select'):control).focus({preventScroll:true});};
+ const go=(id,focus)=>{const next=[...document.querySelectorAll('.card')].find(c=>c.dataset.id===id);if(!next||next===card)return;const reading=readingPosition(card);closeCard(card,false);expandCard(next);restoreReadingPosition(next,reading);const control=next.querySelector(focus);(control.disabled?next.querySelector('.property-navigation select'):control).focus({preventScroll:true});};
  nav.querySelector('.property-previous').addEventListener('click',()=>go(listedCardIds[index-1],'.property-previous'));
  nav.querySelector('.property-next').addEventListener('click',()=>go(listedCardIds[index+1],'.property-next'));
  nav.querySelector('select').addEventListener('change',event=>go(event.target.value,'.property-navigation select'));
  nav.querySelector('.property-nav-close').addEventListener('click',()=>closeCard(card));
+}
+function readingSections(card){return [...card.querySelectorAll('.card-summary,.inline-detail>.gallery,.inline-detail>.detail-section')];}
+function readingKey(element){return element.classList.contains('detail-section')?element.querySelector('h2').textContent:element.classList.contains('gallery')?'gallery':'summary';}
+function readingPosition(card){
+ const bar=card.querySelector('.property-navigation').getBoundingClientRect();
+ const sections=readingSections(card);
+ const visibleHeight=element=>{const r=element.getBoundingClientRect();return Math.max(0,Math.min(r.bottom,innerHeight)-Math.max(r.top,bar.bottom));};
+ const anchor=sections.reduce((best,element)=>visibleHeight(element)>visibleHeight(best)?element:best,sections[0]);
+ return {key:readingKey(anchor),top:anchor.getBoundingClientRect().top};
+}
+function restoreReadingPosition(card,reading){
+ const sections=readingSections(card);
+ const anchor=sections.find(element=>readingKey(element)===reading.key)||sections.find(element=>readingKey(element)==='Το ακίνητο')||sections[0];
+ const rect=anchor.getBoundingClientRect();
+ // Keep the same section visible; clamp a deep offset if the next section is shorter.
+ const top=Math.max(reading.top,120-rect.height);
+ window.scrollBy({top:rect.top-top,behavior:'instant'});
 }
